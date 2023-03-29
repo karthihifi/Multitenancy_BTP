@@ -1,0 +1,211 @@
+_schema-version: "3.2"
+ID: jobschedtest
+version: 0.0.1
+
+parameters:
+  enable-parallel-deployments: true
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm install --production
+        - npx -p @sap/cds-dk cds build --production
+
+modules:
+  # ------------ COMMON DATA BASE DEPLOYER MODULE --------------
+  - name: jobschedtest-db-common-deployer
+    # ------------------------------------------------------------
+    type: hdb
+    path: dbcommon
+    build-parameters:
+      ignore:
+        - default-*.json
+        - .env
+        - "*node_modules*"
+        - package-lock.json
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 1024M
+    requires:
+      - name: jobschedtest-uaa
+      - name: jobschedtest-db-common
+
+  # --------------------- SERVER MODULE ------------------------
+  - name: jobschedtest-srv
+    # ------------------------------------------------------------
+    type: nodejs
+    path: gen/srv
+    build-parameters:
+      ignore:
+        - default-*.json
+        - .env
+        - "*node_modules*"
+        - package-lock.json
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 512M
+      disk-quota: 1024M
+    requires:
+      - name: jobschedtest-uaa
+      - name: jobschedtest-dest
+      - name: job-scheduler
+      - name: jobschedtest-logging
+      - name: jobschedtest-registry
+      - name: jobschedtest-sm
+      - name: app-api
+        properties:
+          APP_PROTOCOL: ~{app-protocol}
+          APP_URI: ~{app-uri}
+          JBSCH_CLNTSEC: ""
+          APP_DOMAIN: ${default-domain}
+      - name: jobschedtest-db-common
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+      - name: mtx-api
+        properties:
+          mtx-url: ${default-url}
+
+  # ------------------ APP ROUTER MODULE -----------------------
+  - name: jobschedtest-app
+    # ------------------------------------------------------------
+    type: approuter.nodejs
+    path: app
+    build-parameters:
+      ignore:
+        - default-*.json
+        - .env
+        - "*node_modules*"
+        - package-lock.json
+    parameters:
+      memory: 256M
+      disk-quota: 1024M
+      keep-existing-routes: true
+      app-name: "jobschedtest-app"
+      tenant-separator: "-"
+      app-domain: ${app-name}.${default-domain}
+    properties:
+      TENANT_HOST_PATTERN: "^(.*)${tenant-separator}${app-domain}"
+    requires:
+      - name: jobschedtest-uaa
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv
+          url: ~{srv-url}
+          timeout: 600000
+          forwardAuthToken: true
+      - name: mtx-api
+        group: destinations
+        properties:
+          name: mtx
+          url: ~{mtx-url}
+          timeout: 600000
+      - name: jobschedtest-logging
+    provides:
+      - name: app-api
+        properties:
+          app-protocol: ${protocol}
+          app-uri: ${default-uri}
+
+resources:
+  # ----------------------- UAA SERVICE ------------------------
+  - name: jobschedtest-uaa
+    # ------------------------------------------------------------
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+
+  # -------------------- DESTINATION SERVICE -------------------
+  - name: jobschedtest-dest
+    # ------------------------------------------------------------
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+      config:
+        init_data:
+          instance:
+            existing_destinations_policy: update
+            destinations:
+              - Name: jobschedtest-cfapi
+                Description: CF Cloud Controller API
+                URL: ${controller-url}
+                Type: HTTP
+                ProxyType: Internet
+                Authentication: OAuth2Password
+                tokenServiceURL: ${authorization-url}/oauth/token
+                clientId: cf
+                clientSecret:
+                User: karthik.raja@proaxia-consulting.com
+                Password: Lordmuruga0210!
+              - Name: jobschedtest-nw
+                Description: Northwind
+                URL: https://services.odata.org/v4/Northwind/Northwind.svc
+                Type: HTTP
+                ProxyType: Internet
+                Authentication: NoAuthentication
+                HTML5.DynamicDestination: true
+
+  # ---------------- COMMON HDI CONTAINER SERVICE --------------
+  - name: jobschedtest-db-common
+    # ------------------------------------------------------------
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+    properties:
+      hdi-service-name: ${service-name}
+
+  # --------------------- REGISTRY SERVICE ---------------------
+  - name: jobschedtest-registry
+    # ------------------------------------------------------------
+    type: org.cloudfoundry.managed-service
+    requires:
+      - name: mtx-api
+    parameters:
+      service: saas-registry
+      service-plan: application
+      service-name: jobschedtest-registry
+      config:
+        xsappname: jobschedtest
+        appName: jobschedtest
+        displayName: "Job Scheduler"
+        description: "Business Application"
+        category: "SaaS Multitenant Job Scheduler"
+        appUrls:
+          onSubscription: ~{mtx-api/mtx-url}/-/cds/saas-provisioning/tenant/{tenantId}
+          getDependencies: ~{mtx-api/mtx-url}/-/cds/saas-provisioning/dependencies
+          onSubscriptionAsync: false
+          onUnSubscriptionAsync: false
+          callbackTimeoutMillis: 300000
+
+  # ------------------- SERVICE MANAGER SERVICE ----------------
+  - name: jobschedtest-sm
+    # ------------------------------------------------------------
+    type: org.cloudfoundry.managed-service
+    requires:
+      - name: jobschedtest-uaa
+    parameters:
+      service: service-manager
+      service-plan: container
+      polling_timeout_seconds: 240
+      config:
+        acquireTimeoutMillis: max
+        polling_timeout_seconds: 480
+
+  # ---------------- APPLICATION LOGGING SERVICE ---------------
+  - name: jobschedtest-logging
+    # ------------------------------------------------------------
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: application-logs
+      service-plan: lite
+
+  - name: job-scheduler
+    type: org.cloudfoundry.existing-service

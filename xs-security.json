@@ -1,0 +1,57 @@
+{
+    "xsappname": "jobschedtest",
+    "tenant-mode": "shared",
+    "scopes": [
+        {
+            "name": "$XSAPPNAME.mtcallback",
+            "description": "Subscription via SaaS Registry",
+            "grant-as-authority-to-apps": [
+                "$XSAPPNAME(application,sap-provisioning,tenant-onboarding)"
+            ]
+        },
+        {
+            "name": "$XSAPPNAME.JOBSCHEDULER",
+            "description": "Job Scheduler Scope",
+            "grant-as-authority-to-apps": [
+                "$XSSERVICENAME(job-scheduler)"
+            ]
+        },
+        {
+            "name": "$XSAPPNAME.cds.Subscriber",
+            "description": "Subscribe to applications"
+        },
+        {
+            "name": "uaa.user",
+            "description": "UAA"
+        }
+    ],
+    "foreign-scope-references": [
+        "$ACCEPT_GRANTED_SCOPES"
+    ],
+    "authorities-inheritance": false,
+    "authorities": [
+        "$XSAPPNAME.cds.Subscriber"
+    ],
+    "role-templates": [
+        {
+            "name": "Token_Exchange",
+            "description": "UAA Token Exchange",
+            "scope-references": [
+                "uaa.user"
+            ]
+        },
+        {
+            "name": "Subscriber",
+            "description": "Subscriber",
+            "scope-references": [
+                "$XSAPPNAME.cds.Subscriber"
+            ]
+        }
+    ],
+    "oauth2-configuration": {
+        "token-validity": 3600,
+        "redirect-uris": [
+            "https://*-jobschedtest-app.cfapps.*.hana.ondemand.com/login/callback"
+        ]
+    }
+}

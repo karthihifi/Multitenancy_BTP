@@ -1,0 +1,5 @@
+ID,Carname,Makeyear,OriginCountry,Stock,Price,Currency,AvailableColors,InspectionPassed,InspectionStatus,InspectionComments
+1,MAZDA CX-5,2020,Japan,100,25000,'EUR',"Polymetal Grey,Deep Crystal Blue Mica,Jet Black Mica",false,'NA', 'NA'
+2,HONDA-CRV,2022,Japan,235,27316,'EUR',"Sonic Gray Pearl,Radiant Red Metallic,
+Crystal Black Pearl,Platinum White Pearl",false, 'NA', 'NA'
+3,PEUGEOT-5008,2023,France,75,39457,'EUR',"Pearlescent White,Emerald,Nimbus Grey,Egyptian Blue,Amazonite Grey",false,'NA','NA'

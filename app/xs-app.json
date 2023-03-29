@@ -1,0 +1,26 @@
+{
+    "welcomeFile": "index.html",
+    "authenticationMethod": "route",
+    "routes": [
+        {
+            "source": "^/catalog/(.*)$",
+            "authenticationType": "xsuaa",
+            "destination": "srv"
+        },
+        {
+            "source": "^/jobs/(.*)$",
+            "authenticationType": "none",
+            "destination": "srv"
+        },
+        {
+            "source": "^/-/cds/.*",
+            "authenticationType": "none",
+            "destination": "mtx"
+        },
+        {
+            "source": "^/(.*)$",
+            "authenticationType": "xsuaa",
+            "localDir": "resources"
+        }
+    ]
+}
