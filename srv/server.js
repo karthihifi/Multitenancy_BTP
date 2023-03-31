@@ -30,6 +30,23 @@ cds.once('listening', async () => {
                         console.log('CDs Spawn called')
                         let Vehicles = await tx.run(SELECT.from('jobschedtest.db.VehiclesPurch'))
                         console.log('Vehicle Data', Vehicles)
+
+                        // const { tenant, user } = cds.context.RootContext
+                        const nwsco = await cds.connect.to('nw');
+                        const { Products } = nwsco.entities
+                        console.log(Products, "Entities", cds.context)
+                        const tx1 = nwsco.transaction({ tenant: item.Tenant });
+                        // console.log('Destination Query Start')
+                        // const cats = await cds.connect.to('CatalogService')s
+                        // const res2 = await cats.userInfo()
+                        // tx.send('userInfo');
+                        // const cqn = SELECT.from(Products)
+                        // let result = await tx.read(Products)
+                        let result = await tx1.get("/Products")
+                        let Products1 = result;
+                        // console.log('Destination Query Result', Products1)
+                        // console.log(cds.context, "CDS Context")
+
                         // const cs = await cds.connect.to('CatalogService');
                         // let results = await cs.read(SELECT.from(VehiclesPurchased));
                     })

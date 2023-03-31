@@ -6,6 +6,8 @@ log.registerCustomFields(["country", "amount"]);
 const dbClass = require('sap-hdbext-promisfied');
 const axios = require('axios')
 const xsenv = require('@sap/xsenv');
+const httpClient = require('@sap-cloud-sdk/http-client');
+const { retrieveJwt } = require('@sap-cloud-sdk/connectivity');
 
 module.exports = cds.service.impl(async function () {
 
@@ -96,7 +98,72 @@ module.exports = cds.service.impl(async function () {
         }
     });
 
-    this.on('userInfo', req => {
+    this.on('userInfo', async req => {
+        // const tx = nwsco.transaction(req);
+        // debug('Request Check')
+        // console.log('Destination Query Start', req.headers)
+        // let result = await tx.get("/Products")
+        // let Products = result;
+        // console.log('Destination Query Result', Products)
+        console.log('Request Headers', req.tenant);
+        try {
+            let token = retrieveJwt(req);
+            console.log('Access Token', token);
+        } catch (error) {
+            console.log('Token Error')
+        }
+
+        const services = xsenv.getServices({
+            destination: { label: 'xsuaa' },
+        });
+
+        console.log(services.destination, 'XSUAA')
+
+        let jobSchclienSecret = services.destination.clientsecret
+        // let clientid = services.jobscheduler.uaa.clientid
+
+        let Access_token;
+
+        var options = {
+            method: 'POST',
+            // url: 'https://poc-multi-tenancy-subscriber1-igfpa9w7.authentication.eu10.hana.ondemand.com/oauth/token',
+            url: 'https://poc-multi-tenancy-subscriber2-iqndot9n.authentication.eu10.hana.ondemand.com/oauth/token',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            data: {
+                client_id: 'sb-jobschedtest!t197539',    //'sb-clone3f51230f86c84f51a79e35fe28600836!b197539|destination-xsappname!b404',
+                client_secret: jobSchclienSecret,
+                grant_type: 'client_credentials'
+            }
+        };
+
+        axios.request(options).then(async function (response) {
+            console.log(response.data);
+            Access_token = response.data.access_token
+
+            console.log('Query Start')
+            try {
+                let res1 = await httpClient.executeHttpRequest(
+                    {
+                        destinationName: 'jobschedtest-nw'       //req.query.destination || ''
+                        ,
+                        jwt: Access_token //retrieveJwt(req)
+                    },
+                    {
+                        method: 'GET',
+                        url: "/Products"            //req.query.path || ''
+                    }
+                );
+                // res.status(200).json(res1.data);
+                console.log(res1.data, "Response from http client req")
+            } catch (err) {
+                console.log("Error Occured");
+                // res.status(500).send(err.message);
+            }
+
+        }).catch(function (error) {
+            console.error(error);
+        });
+
         let results = {};
         results.user = cds.context.user.id;
         results.locale = cds.context.locale;

@@ -8,7 +8,8 @@
     "node": "^16"
   },
   "dependencies": {
-    "@sap-cloud-sdk/http-client": "^2.5",
+    "@sap-cloud-sdk/connectivity": "^3.0.2",
+    "@sap-cloud-sdk/http-client": "^2.15.0",
     "@sap/audit-logging": "^5",
     "@sap/cds": "^6.1",
     "@sap/cds-mtxs": "^1.1",
