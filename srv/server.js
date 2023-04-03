@@ -116,11 +116,16 @@ cds.once('listening', async () => {
                                         // console.log('updatedstocks', updatedstocks)
 
                                         //+++Working one
-                                        // await tx.update('jobschedtest.db.VehiclesPurch')
-                                        //     .with({ Stock: { '=': updatedstock } })
-                                        //     .where({ ID: { '=': VehID } })
-                                        //     ;
-                                        // tx.commit()
+                                        let tx1 = cds.tx({ tenant: tenant })
+                                        try {
+                                            await tx1.update('jobschedtest.db.VehiclesPurch')
+                                                .with({ Stock: { '=': updatedstock } })
+                                                .where({ ID: { '=': VehID } });
+                                            await tx1.commit();
+                                        } catch (error) {
+                                            console.log(error, 'Error Occurred during ')
+                                        }
+
                                         // console.log('Timeout Mechanism')
                                         // setTimeout(1000)
                                     }
