@@ -5,6 +5,7 @@ const appEnv = cfenv.getAppEnv();
 const httpClient = require('@sap-cloud-sdk/http-client');
 const dbClass = require('sap-hdbext-promisfied');
 const xsenv = require('@sap/xsenv');
+const axios = require('axios')
 xsenv.loadEnv();
 
 cds.on('bootstrap', app => app.use((req, res, next) => {
@@ -27,23 +28,126 @@ cds.once('listening', async () => {
                 if (item.Active == true) {
                     console.log("CDS Spawn Clling", item.Tenant);
                     job = cds.spawn({ tenant: item.Tenant }, async (tx) => {
-                        console.log('CDs Spawn called')
+                        // console.log('CDs Spawn called')
                         let Vehicles = await tx.run(SELECT.from('jobschedtest.db.VehiclesPurch'))
-                        console.log('Vehicle Data', Vehicles)
+                        // console.log('Vehicle Data', Vehicles)
 
-                        // const { tenant, user } = cds.context.RootContext
-                        const nwsco = await cds.connect.to('nw');
-                        const { Products } = nwsco.entities
-                        console.log(Products, "Entities", cds.context)
-                        const tx1 = nwsco.transaction({ tenant: item.Tenant });
+                        const services = xsenv.getServices({
+                            destination: { label: 'xsuaa' },
+                        });
+
+                        let jobSchclienSecret = services.destination.clientsecret
+
+                        let Authurl = 'https://' + item.Domain + '.authentication.eu10.hana.ondemand.com/oauth/token'
+                        var options = {
+                            method: 'POST',
+                            // url: 'https://poc-multi-tenancy-subscriber1-igfpa9w7.authentication.eu10.hana.ondemand.com/oauth/token',
+                            //url: 'https://poc-multi-tenancy-subscriber2-iqndot9n.authentication.eu10.hana.ondemand.com/oauth/token',
+                            url: Authurl,
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            data: {
+                                client_id: 'sb-jobschedtest!t197539',    //'sb-clone3f51230f86c84f51a79e35fe28600836!b197539|destination-xsappname!b404',
+                                client_secret: jobSchclienSecret,
+                                grant_type: 'client_credentials'
+                            }
+                        };
+                        // console.log(services, 'XSUAA', Authurl);
+
+                        axios.request(options).then(async function (response) {
+                            // console.log(response.data);
+                            let Access_token = response.data.access_token
+
+                            console.log('Query Start')
+                            try {
+                                let res1 = await httpClient.executeHttpRequest(
+                                    {
+                                        destinationName: 'jobschedtest-nw',
+                                        jwt: Access_token
+                                    },
+                                    {
+                                        method: 'GET',
+                                        url: "/Products"
+                                    }
+                                );
+                                let Cdsdata = { ...cds.context }
+                                let Cdsdata1 = JSON.stringify(Cdsdata).replace('string', '')
+                                let tenant = JSON.parse(Cdsdata1).tenant
+                                console.log("Response from http client : ", tenant)
+
+                                let Products = res1.data.value;
+
+                                Vehicles.forEach(async (item) => {
+                                    let filtered = Products.find((Prod) => {
+                                        switch (tenant) {
+                                            case '3847b3ff-57d0-4ef0-a250-c5b682249e88':
+                                                return Prod.ID == item.ID;
+                                                break;
+                                            case '96c4f75d-d202-4bb3-8c13-dc78b8c5aba0':
+                                                return Prod.ProductID == item.ID;
+                                                break
+                                            default:
+                                                break;
+                                        }
+
+                                    })
+                                    console.log(filtered, 'filtered')
+                                    let NewStock = Math.round(item.Stock);
+                                    switch (tenant) {
+                                        case '3847b3ff-57d0-4ef0-a250-c5b682249e88':
+                                            NewStock = NewStock + filtered.Price
+                                            break;
+                                        case '96c4f75d-d202-4bb3-8c13-dc78b8c5aba0':
+                                            NewStock = NewStock + filtered.UnitsInStock
+                                            break
+                                        default:
+                                            break;
+                                    }
+
+                                    let updatedstock = parseInt(NewStock)
+                                    let VehID = item.ID;
+                                    console.log(VehID, 'filtered', updatedstock)
+
+                                    // let q3 = UPDATE('jobschedtest.db.VehiclesPurch').where({ ID: filtered.ID }).with({ Stock: { updatedstock } })
+                                    // let query = UPDATE `jobschedtest.db.VehiclesPurch` .where `ID=${filtered.ID}` .with  `Stock: { '+=': newstock }` 
+                                    if (filtered != undefined) {
+                                        // await tx.run(UPDATE('jobschedtest.db.VehiclesPurch').where({ ID: VehID }).with({ Stock: { updatedstock } }));
+                                        // let updatedstocks = await tx1.run(UPDATE('jobschedtest.db.VehiclesPurch').where({ ID: filtered.ID }).with({ Stock: { updatedstock } }))
+                                        // let updatedstocks = await tx1.run(q3);
+                                        // console.log('updatedstocks', updatedstocks)
+
+                                        //+++Working one
+                                        // await tx.update('jobschedtest.db.VehiclesPurch')
+                                        //     .with({ Stock: { '=': updatedstock } })
+                                        //     .where({ ID: { '=': VehID } })
+                                        //     ;
+                                        // tx.commit()
+                                        // console.log('Timeout Mechanism')
+                                        // setTimeout(1000)
+                                    }
+                                });
+
+                                // let Vehicles1 = await tx.run(SELECT.from('jobschedtest.db.VehiclesPurch'))
+                                // console.log('CDS Spawn Ended', Vehicles1)
+
+                            } catch (err) {
+                                console.log("Error Occured");
+                            }
+
+                        }).catch(function (error) {
+                            console.error(error);
+                        });
+                        // const nwsco = await cds.connect.to('nw');
+                        // const { Products } = nwsco.entities
+                        // console.log(Products, "Entities", cds.context)
+                        // const tx1 = nwsco.transaction({ tenant: item.Tenant });
                         // console.log('Destination Query Start')
                         // const cats = await cds.connect.to('CatalogService')s
                         // const res2 = await cats.userInfo()
                         // tx.send('userInfo');
                         // const cqn = SELECT.from(Products)
                         // let result = await tx.read(Products)
-                        let result = await tx1.get("/Products")
-                        let Products1 = result;
+                        // let result = await tx1.get("/Products")
+                        // let Products1 = result;
                         // console.log('Destination Query Result', Products1)
                         // console.log(cds.context, "CDS Context")
 
@@ -196,7 +300,17 @@ cds.on('served', () => {
                         const statement = await db.preparePromisified(sql);
                         const results = await db.statementExecPromisified(statement, []);
                         console.log('Query Results', results)
-                        return results;
+
+                        let id = results[0].count + 1;
+                        let tenant = req.data.subscribedTenantId;
+                        let domain = req.data.subscribedSubdomain;
+                        // let sql1 = `INSERT INTO "jobschedtest.dbcommon::Vehicles" VALUES(3,'3847b3ff-57d0-4ef0-a250-c5b682249e89',false)`
+                        let sql1 = `INSERT INTO "jobschedtest.dbcommon::Vehicles" VALUES(${id},'${tenant}','${domain},false)`
+                        console.log(sql1, 'sql')
+                        const statement1 = await db.preparePromisified(sql1);
+                        const results1 = await db.statementExecPromisified(statement1, []);
+                        console.log('Results from Execution1', results1)
+                        // return results;
                     } catch (err) {
                         console.error('Error When Querying DB', err);
                     }

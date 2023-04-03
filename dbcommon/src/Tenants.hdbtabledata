@@ -16,6 +16,7 @@
                 "import_columns": [
                     "ID",
                     "Tenant",
+                    "Domain",
                     "Active"
                 ]
             }

@@ -1,3 +1,3 @@
-ID,Tenant,Active
-1,3847b3ff-57d0-4ef0-a250-c5b682249e88,true
-2,96c4f75d-d202-4bb3-8c13-dc78b8c5aba0,true
+ID,Tenant,Domain,Active
+1,3847b3ff-57d0-4ef0-a250-c5b682249e88,poc-multi-tenancy-subscriber1-igfpa9w7,true
+2,96c4f75d-d202-4bb3-8c13-dc78b8c5aba0,poc-multi-tenancy-subscriber2-iqndot9n,true

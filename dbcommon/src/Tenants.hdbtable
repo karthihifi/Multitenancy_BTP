@@ -1,6 +1,7 @@
 COLUMN TABLE "jobschedtest.dbcommon::Vehicles" (
   "ID" NVARCHAR(100),
   "Tenant" NVARCHAR(200),
+  "Domain" NVARCHAR(250),
   "Active" BOOLEAN,
   PRIMARY KEY ("ID", "Tenant")
 )
